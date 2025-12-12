@@ -1,0 +1,241 @@
+# AI Microservice for FloodGuard Nigeria
+
+FastAPI-based machine learning service for flood risk prediction and sensor anomaly detection.
+
+## Features
+
+- **Flood Risk Scoring**: Random Forest + Gradient Boosting ensemble model
+- **LSTM Nowcasting**: Short-term flood prediction
+- **Sensor Anomaly Detection**: Isolation Forest for outlier detection
+- **Real-time API**: REST endpoints for predictions and health checks
+
+## Project Structure
+
+```
+ai-microservice/
+├── app/
+│   ├── api/v1/          # API endpoints
+│   ├── models/          # Pydantic models
+│   ├── ml/              # ML models & training
+│   ├── utils/           # Helper functions
+│   └── schemas/         # Data schemas
+├── models/              # Saved ML models
+├── data/                # Training datasets
+├── notebooks/           # Jupyter notebooks
+├── tests/               # Unit tests
+└── scripts/             # Utility scripts
+```
+
+## Installation
+
+### Prerequisites
+
+- Python 3.12+
+- PostgreSQL database (shared with Java backend)
+- OpenWeatherMap API key (optional)
+
+### Setup
+
+1. **Create virtual environment**:
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
+
+2. **Install dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Configure environment**:
+   ```bash
+   cp .env.example .env
+   # Edit .env with your database credentials and API keys
+   ```
+
+4. **Test installation**:
+   ```bash
+   python -c "import fastapi, tensorflow, sklearn; print('All imports successful!')"
+   ```
+
+## Usage
+
+### Development Server
+
+```bash
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+API documentation available at: http://localhost:8000/docs
+
+### Production
+
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+```
+
+## API Endpoints
+
+### Health & Status
+
+- `GET /health` - Health check with service status
+- `GET /` - Root endpoint with service information
+- `GET /docs` - Interactive Swagger UI documentation
+- `GET /redoc` - ReDoc API documentation
+
+### Prediction Endpoints
+
+#### 1. Flood Risk Prediction
+```bash
+POST /api/v1/predict/risk
+```
+
+Predict flood risk based on location and environmental conditions.
+
+**Request Body**:
+```json
+{
+  "latitude": 6.5244,
+  "longitude": 3.3792,
+  "water_level_cm": 85.0,
+  "rainfall_mm": 120.0,
+  "temperature": 28.5,
+  "humidity": 90
+}
+```
+
+**Response**:
+```json
+{
+  "risk_score": 0.85,
+  "risk_level": "high",
+  "confidence": 0.92,
+  "factors": ["high_water_level", "heavy_rainfall", "high_humidity"],
+  "model_version": "FloodRiskScorer-v1.0-stub"
+}
+```
+
+#### 2. Flood Nowcasting
+```bash
+POST /api/v1/predict/nowcast
+```
+
+Predict future water levels using LSTM time-series forecasting.
+
+**Request Body**:
+```json
+{
+  "device_id": "ESP32_001",
+  "historical_readings": [
+    {"water_level_cm": 20.0, "timestamp": "2025-12-11T10:00:00Z"},
+    {"water_level_cm": 35.0, "timestamp": "2025-12-11T10:10:00Z"},
+    {"water_level_cm": 50.0, "timestamp": "2025-12-11T10:20:00Z"}
+  ],
+  "forecast_minutes": 30
+}
+```
+
+**Response**:
+```json
+{
+  "device_id": "ESP32_001",
+  "forecast_timestamp": "2025-12-11T10:50:00Z",
+  "predicted_water_level_cm": 65.5,
+  "confidence": 0.88,
+  "trend": "rising",
+  "forecast_minutes": 30,
+  "model_version": "FloodNowcaster-v1.0-stub"
+}
+```
+
+#### 3. Anomaly Detection
+```bash
+POST /api/v1/detect/anomaly
+```
+
+Detect anomalous sensor readings using Isolation Forest.
+
+**Request Body**:
+```json
+{
+  "device_id": "ESP32_001",
+  "water_level_cm": 85.0,
+  "temperature": 28.5,
+  "humidity": 75,
+  "battery_voltage": 3.8,
+  "historical_mean": 25.0,
+  "historical_std": 5.0
+}
+```
+
+**Response**:
+```json
+{
+  "device_id": "ESP32_001",
+  "is_anomaly": true,
+  "anomaly_score": 0.78,
+  "anomaly_types": ["statistical_outlier"],
+  "confidence": 0.85,
+  "details": {"z_score": 12.0},
+  "model_version": "SensorAnomalyDetector-v1.0-stub"
+}
+```
+
+### Example Usage
+
+See `examples/api_usage.py` for complete working examples:
+
+```bash
+# Terminal 1: Start the API server
+uvicorn app.main:app --reload
+
+# Terminal 2: Run the examples
+python examples/api_usage.py
+```
+
+## Development
+
+### Running Tests
+
+```bash
+pytest tests/ -v --cov=app
+```
+
+### Code Formatting
+
+```bash
+black app/ tests/
+flake8 app/ tests/
+```
+
+### Training Models
+
+```bash
+python scripts/train_models.py
+```
+
+## Database Connection
+
+The AI microservice connects to the same PostgreSQL database as the Java backend:
+
+```
+postgresql://floodguard_user:password@localhost:5432/floodguard
+```
+
+It requires READ access to:
+- `flood_events` table
+- `sensor_readings` table
+- `weather_data` table (if exists)
+
+## Tech Stack
+
+- **FastAPI**: Web framework
+- **TensorFlow**: LSTM models
+- **scikit-learn**: Random Forest, Gradient Boosting, Isolation Forest
+- **XGBoost & LightGBM**: Additional ensemble models
+- **PostgreSQL**: Database
+- **Pydantic**: Data validation
+
+## License
+
+Part of FloodGuard Nigeria project

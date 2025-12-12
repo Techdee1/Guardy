@@ -1,0 +1,84 @@
+version: '3.8'
+
+# Development-specific docker-compose configuration
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+services:
+  # Override API service for development
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    environment:
+      DEBUG: "true"
+      LOG_LEVEL: "DEBUG"
+      RELOAD: "true"
+    volumes:
+      # Mount source code for hot reload
+      - ./app:/app/app:rw
+      - ./models:/app/models:rw
+      - ./logs:/app/logs
+      - ./data:/app/data
+      - ./tests:/app/tests
+      - ./scripts:/app/scripts
+      - ./notebooks:/app/notebooks
+    ports:
+      # Expose additional ports for debugging
+      - "8000:8000"
+      - "5678:5678"  # debugpy port
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 4G
+
+  # Redis with less restrictive settings for development
+  redis:
+    command: redis-server --appendonly no --maxmemory 1gb
+    ports:
+      - "6379:6379"
+
+  # PostgreSQL with exposed port for direct access
+  postgres:
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_HOST_AUTH_METHOD: trust  # For development only!
+
+  # pgAdmin for database management (development only)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: guardy-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@guardy.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - guardy-network
+    depends_on:
+      - postgres
+
+  # Redis Commander for cache management (development only)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: guardy-redis-commander
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS: local:redis:6379
+    ports:
+      - "8081:8081"
+    networks:
+      - guardy-network
+    depends_on:
+      - redis
+
+volumes:
+  pgadmin_data:
+    driver: local

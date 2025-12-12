@@ -1,0 +1,153 @@
+# Render.com Blueprint Configuration
+# This file defines all services needed for the Guardy AI Microservice
+
+services:
+  # Main API Service
+  - type: web
+    name: guardy-ai-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    envVars:
+      # Application Settings
+      - key: APP_NAME
+        value: Guardy AI Microservice
+      - key: APP_VERSION
+        value: 1.0.0
+      - key: DEBUG
+        value: false
+      - key: LOG_LEVEL
+        value: INFO
+      - key: ENVIRONMENT
+        value: production
+      
+      # Database Connection (linked to database service below)
+      - key: DATABASE_URL
+        fromDatabase:
+          name: guardy-db
+          property: connectionString
+      - key: DB_HOST
+        fromDatabase:
+          name: guardy-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: guardy-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: guardy-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: guardy-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: guardy-db
+          property: password
+      
+      # Redis Connection (linked to Redis service below)
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: guardy-redis
+          property: connectionString
+      - key: REDIS_HOST
+        fromService:
+          type: redis
+          name: guardy-redis
+          property: host
+      - key: REDIS_PORT
+        fromService:
+          type: redis
+          name: guardy-redis
+          property: port
+      - key: REDIS_PASSWORD
+        fromService:
+          type: redis
+          name: guardy-redis
+          property: password
+      - key: CACHE_ENABLED
+        value: true
+      
+      # Cache TTL Settings (in seconds)
+      - key: CACHE_TTL_FLOOD_RISK
+        value: 300
+      - key: CACHE_TTL_NOWCAST
+        value: 600
+      - key: CACHE_TTL_ANOMALY
+        value: 60
+      - key: CACHE_TTL_BATCH
+        value: 180
+      - key: CACHE_TTL_EVACUATION
+        value: 900
+      
+      # Performance Settings
+      - key: MAX_BATCH_SIZE
+        value: 100
+      - key: WORKER_THREADS
+        value: 4
+      - key: REQUEST_TIMEOUT
+        value: 30
+      - key: ENABLE_MODEL_WARMUP
+        value: true
+      - key: ENABLE_PROFILING
+        value: false
+      
+      # CORS Settings
+      - key: CORS_ORIGINS
+        value: "*"
+      - key: CORS_ALLOW_CREDENTIALS
+        value: true
+      
+      # Security (set via Render Dashboard for sensitive values)
+      - key: SECRET_KEY
+        sync: false  # Set manually in Render Dashboard
+      - key: API_KEY
+        sync: false  # Set manually in Render Dashboard
+    
+    # Health Check Configuration
+    healthCheckPath: /api/v1/models/health
+    
+    # Build Configuration
+    dockerCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 4
+    
+    # Auto-Deploy Configuration
+    autoDeploy: true
+    branch: master
+    
+    # Resource Configuration
+    plan: standard  # Options: starter, standard, pro
+    region: oregon  # Options: oregon, frankfurt, singapore
+    
+    # Scaling Configuration
+    numInstances: 1
+    
+    # Disk Configuration (for model files and logs)
+    disk:
+      name: guardy-models
+      mountPath: /app/models
+      sizeGB: 10
+    
+    # Environment-specific settings
+    buildFilter:
+      paths:
+        - ai-microservice/**
+
+# PostgreSQL Database
+databases:
+  - name: guardy-db
+    databaseName: guardy
+    user: guardy
+    plan: starter  # Options: starter, standard, pro
+    region: oregon
+    ipAllowList: []  # Empty means accessible from anywhere
+    postgresMajorVersion: 16
+
+# Redis Cache
+  - name: guardy-redis
+    plan: starter  # Options: starter, standard, pro
+    region: oregon
+    maxmemoryPolicy: allkeys-lru  # Eviction policy
+    ipAllowList: []  # Empty means accessible from anywhere
